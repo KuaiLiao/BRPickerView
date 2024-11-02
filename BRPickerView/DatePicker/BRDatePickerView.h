@@ -87,6 +87,10 @@ typedef void (^BRDateResultRangeBlock)(NSDate * _Nullable selectStartDate, NSDat
 @property (nullable, nonatomic, strong) NSDate *selectDate;
 @property (nullable, nonatomic, copy) NSString *selectValue;
 
+// 记录选择的值
+@property (nonatomic, strong, readonly) NSDate *mSelectDate;
+@property (nonatomic, copy, readonly) NSString *mSelectValue;
+
 /** 最小日期（可使用 NSDate+BRPickerView 分类中对应的方法进行创建）*/
 @property (nullable, nonatomic, strong) NSDate *minDate;
 /** 最大日期（可使用 NSDate+BRPickerView 分类中对应的方法进行创建）*/

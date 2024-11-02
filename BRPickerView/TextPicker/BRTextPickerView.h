@@ -99,6 +99,9 @@ typedef void(^BRMultiResultBlock)(NSArray <BRTextModel *> * _Nullable models, NS
 /** 滚动至选择行动画，默认为 NO */
 @property (nonatomic, assign) BOOL selectRowAnimated;
 
+/** 选择器 */
+@property (nonatomic, strong, readonly) UIPickerView *pickerView;
+
 /// 初始化文本选择器
 /// @param pickerMode 文本选择器显示类型
 - (instancetype)initWithPickerMode:(BRTextPickerMode)pickerMode;
