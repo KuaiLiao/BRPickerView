@@ -397,6 +397,7 @@
                 UIView *selectRowView = (UIView *)obj;
                 // 中间选中行的背景颜色
                 selectRowView.backgroundColor = self.selectRowColor;
+                selectRowView.layer.cornerRadius = self.selectRowCornerRadius;
             }
         }
     }
