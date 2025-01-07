@@ -80,16 +80,22 @@ typedef void (^BRDateResultRangeBlock)(NSDate * _Nullable selectStartDate, NSDat
  ///
  ////////////////////////////////////////////////////////////////////////*/
 
+/** 日期选择器1 */
+@property (nonatomic, strong, readonly) UIDatePicker *datePicker;
+/** 日期选择器2 */
+@property (nonatomic, strong, readonly) UIPickerView *pickerView;
+
+// 记录选择的值
+@property (nonatomic, strong, readonly) NSDate *mSelectDate;
+@property (nonatomic, copy, readonly) NSString *mSelectValue;
+
+
 /** 日期选择器显示类型 */
 @property (nonatomic, assign) BRDatePickerMode pickerMode;
 
 /** 设置选中的日期（推荐使用 selectDate） */
 @property (nullable, nonatomic, strong) NSDate *selectDate;
 @property (nullable, nonatomic, copy) NSString *selectValue;
-
-// 记录选择的值
-@property (nonatomic, strong, readonly) NSDate *mSelectDate;
-@property (nonatomic, copy, readonly) NSString *mSelectValue;
 
 /** 最小日期（可使用 NSDate+BRPickerView 分类中对应的方法进行创建）*/
 @property (nullable, nonatomic, strong) NSDate *minDate;
