@@ -147,12 +147,6 @@ typedef NS_ENUM(NSInteger, BRDatePickerStyle) {
         // 如果最小日期大于了最大日期，就忽略两个值
         self.minDate = [NSDate distantPast]; // 0000-12-30 00:00:00 +0000
         self.maxDate = [NSDate distantFuture]; // 4001-01-01 00:00:00 +0000
-        
-        // 如果是12小时制，hour的最小值为1；hour的最大值为12
-        if (self.isTwelveHourMode) {
-            [self.minDate br_setTwelveHour:1];
-            [self.maxDate br_setTwelveHour:12];
-        }
     }
     
     // 3.默认选中的日期
@@ -431,12 +425,22 @@ typedef NS_ENUM(NSInteger, BRDatePickerStyle) {
 }
 
 #pragma mark - 更新日期数据源数组
-- (void)reloadDateArrayWithUpdateMonth:(BOOL)updateMonth updateDay:(BOOL)updateDay updateHour:(BOOL)updateHour updateMinute:(BOOL)updateMinute updateSecond:(BOOL)updateSecond {
-    [self reloadDateArrayWithUpdateMonth:updateMonth updateDay:updateDay updateHour:updateHour updateMinute:updateMinute updateSecond:NO updateWeekOfMonth:NO updateWeekOfYear:NO updateQuarter:NO];
+- (void)reloadDateArrayWithUpdateMonth:(BOOL)updateMonth
+                             updateDay:(BOOL)updateDay
+                            updateHour:(BOOL)updateHour
+                          updateMinute:(BOOL)updateMinute
+                          updateSecond:(BOOL)updateSecond {
+    [self reloadDateArrayWithUpdateMonth:updateMonth updateDay:updateDay updateHour:updateHour updateMinute:updateMinute updateSecond:updateSecond updateWeekOfMonth:NO updateWeekOfYear:NO updateQuarter:NO];
 }
 
-- (void)reloadDateArrayWithUpdateMonth:(BOOL)updateMonth updateDay:(BOOL)updateDay updateHour:(BOOL)updateHour updateMinute:(BOOL)updateMinute updateSecond:(BOOL)updateSecond
-                     updateWeekOfMonth:(BOOL)updateWeekOfMonth updateWeekOfYear:(BOOL)updateWeekOfYear updateQuarter:(BOOL)updateQuarter {
+- (void)reloadDateArrayWithUpdateMonth:(BOOL)updateMonth
+                             updateDay:(BOOL)updateDay
+                            updateHour:(BOOL)updateHour
+                          updateMinute:(BOOL)updateMinute
+                          updateSecond:(BOOL)updateSecond
+                     updateWeekOfMonth:(BOOL)updateWeekOfMonth
+                      updateWeekOfYear:(BOOL)updateWeekOfYear
+                         updateQuarter:(BOOL)updateQuarter {
     _isAdjustSelectRow = NO;
     // 1.更新 monthArr
     if (self.yearArr.count == 0) {
@@ -875,18 +879,52 @@ typedef NS_ENUM(NSInteger, BRDatePickerStyle) {
     }
     label.text = [self pickerView:pickerView titleForRow:row forComponent:component];
     
+    // 优化末列文本显示：处理时间类型为 BRDatePickerModeYMDHMS 时，最后一列的「秒」溢出屏幕外显示不全的情况
+    if (self.pickerMode == BRDatePickerModeYMDHMS && component == pickerView.numberOfComponents - 1) {
+        NSMutableParagraphStyle *paragraphStyle = [[NSMutableParagraphStyle alloc] init];
+        paragraphStyle.alignment = NSTextAlignmentCenter; // 文本居中对齐
+        paragraphStyle.tailIndent = self.showUnitType == BRShowUnitTypeOnlyCenter ? -40 : -25; // 右侧缩进25点（负值表示从右边界向左缩进）
+        paragraphStyle.lineBreakMode = NSLineBreakByTruncatingTail; // 显示不下时，右侧显示省略号
+        NSDictionary *attributes = @{ NSParagraphStyleAttributeName: paragraphStyle, NSFontAttributeName: self.pickerStyle.pickerTextFont };
+        NSAttributedString *attributedText = [[NSAttributedString alloc] initWithString:label.text attributes:attributes];
+        label.attributedText = attributedText;
+    }
+    
     // 2.设置选择器中间选中行的样式
     [self.pickerStyle setupPickerSelectRowStyle:pickerView titleForRow:row forComponent:component];
     
     // 3.记录选择器滚动过程中选中的列和行
+    [self handlePickerViewRollingStatus:pickerView component:component];
+
+    return label;
+}
+
+#pragma mark - 处理选择器滚动状态
+- (void)handlePickerViewRollingStatus:(UIPickerView *)pickerView component:(NSInteger)component {
     // 获取选择器组件滚动中选中的行
     NSInteger selectRow = [pickerView selectedRowInComponent:component];
     if (selectRow >= 0) {
         self.rollingComponent = component;
-        self.rollingRow = selectRow;
+        // 根据滚动方向动态计算 rollingRow
+        NSInteger lastRow = self.rollingRow;
+        // 调整偏移量：当用户快速滚动并点击确定按钮时，可能导致选择不准确。这里简单的实现向前/向后多滚动一行（也可以根据滚动速度来调整偏移量）
+        NSInteger offset = 1;
+        if (lastRow >= 0) {
+            // 向上滚动
+            if (selectRow > lastRow) {
+                self.rollingRow = selectRow + offset;
+            } else if (selectRow < lastRow) {
+                // 向下滚动
+                self.rollingRow = selectRow - offset;
+            } else {
+                // 保持当前位置
+                self.rollingRow = selectRow;
+            }
+        } else {
+            // 首次滚动，默认向上滚动
+            self.rollingRow = selectRow + offset;
+        }
     }
-
-    return label;
 }
 
 // 返回每行的标题

@@ -2,12 +2,13 @@
 
 BRPickerView 封装的是iOS中常用的选择器组件，主要包括：**`BRDatePickerView`** 日期选择器（支持年月日、年月等15种日期样式选择，支持设置星期、至今等）、**`BRTextPickerView`** 文本选择器（支持单列、多列、省市区、省市、省、自定义多级联动选择）。支持自定义主题样式，适配深色模式，支持将选择器组件添加到指定容器视图。
 
-【特别说明】
+⚠️【特别说明】
 
->- 从 `2.9.0` 版本起新增了`BRTextPickerView` 组件，用于替代原先 `BRAddressPickerView` 和 `BRStringPickerView` 组件（这两个组件目前做了兼容，可以继续使用，后续会废弃掉，建议使用 `BRTextPickerView` 组件进行替代）
->- 如果不能找到最新版本，请先执行一下 `pod repo update` 更新本地仓库，待更新完成后；再执行 `pod search BRPickerView` 进行搜索，就会看到最新版本。
+>- 从 `V2.9.0` 版本起，新增了`BRTextPickerView` 组件，用于替代 `BRAddressPickerView` 和 `BRStringPickerView` 两个旧组件（目前这两个旧组件做了兼容，可以继续使用，后续会废弃掉，建议使用 `BRTextPickerView` 新组件进行替代）
+>- `V2.8.8`之前老版本，在iOS18+系统上，会因 `maskView` 命名出现崩溃问题，请及时升级到最新版本。
+>- 如果不能找到最新版本，请先执行一下 `pod repo update ` 更新本地仓库，使 CocoaPods 能识别最新可用的库版本。 
 
-#### 📒 稀土掘金地址：https://juejin.cn/post/6844903605468676104
+#### 📒 稀土掘金：https://juejin.cn/post/6844903605468676104
 
 
 
@@ -369,7 +370,7 @@ customStyle.columnSpacing = 60;
 // 设置圆角矩形背景
 // 方式1：使用系统自带样式，保留iOS14之后系统默认的圆角样式。
 customStyle.clearPickerNewStyle = NO;
-// 方式2：可以使用UIView自定义一个圆角矩形视图rectView，并添加到 alertView 上也能实现同样的效果（[stringPickerView.alertView addSubview:rectView];）
+// 方式2：可以使用UIView自定义一个圆角矩形视图rectView，并添加到 alertView 上也能实现同样的效果（[textPickerView.alertView addSubview:rectView];）
 // 设置选择器中间选中行的样式
 customStyle.selectRowTextFont = [UIFont boldSystemFontOfSize:20.0f];
 customStyle.selectRowTextColor = [UIColor blueColor];
@@ -644,12 +645,20 @@ textPickerView.pickerStyle = customStyle;
 /// 应用场景：可将中间的滚轮选择器 pickerView 视图（不包含蒙层及标题栏）添加到任何自定义视图上（会自动填满容器视图），也方便自定义更多的弹框样式
 /// 补充说明：如果是自定义确定按钮，需要回调默认选择的值：只需在自定义确定按钮的点击事件方法里执行一下 doneBlock 回调（目的是去触发组件内部执行 resultBlock 回调，进而回调默认选择的值）
 /// @param view 容器视图
-- (void)addPickerToView:(nullable UIView *)view NS_REQUIRES_SUPER;
+- (void)addPickerToView:(nullable UIView *)view;
 ```
 
 
 
 # 更新记录
+
+#### 2025-04-22（V2.9.5）
+
+- fix：[#319](https://github.com/agiapp/BRPickerView/issues/319) 、[#326](https://github.com/agiapp/BRPickerView/issues/326) 、[#340](https://github.com/agiapp/BRPickerView/issues/340) 
+
+#### 2025-03-16（V2.9.3）
+
+- [#336](https://github.com/agiapp/BRPickerView/issues/336) ：优化选择年月日时分秒时，UI显示最后一个秒显示不全问题
 
 #### 2024-07-24（V2.9.1）
 

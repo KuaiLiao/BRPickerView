@@ -194,7 +194,7 @@ typedef NS_ENUM(NSInteger, BRBorderStyle) {
 @property (nonatomic, assign) CGFloat rowHeight;
 /** 设置 picker 的列宽 */
 @property (nonatomic, assign) CGFloat columnWidth;
-/** 设置 picker 的列间隔，仅支持`BRStringPickerView` */
+/** 设置 picker 的列间隔，仅支持`BRTextPickerView` */
 @property (nonatomic, assign) CGFloat columnSpacing;
 
 /** 设置 picker 文本支持的最大行数，默认为 2 */
@@ -227,6 +227,9 @@ typedef NS_ENUM(NSInteger, BRBorderStyle) {
 
 /** 设置日期选择器单位 label 的竖直方向偏移量 */
 @property (nonatomic, assign) CGFloat dateUnitOffsetY;
+
+/** 设置日期选择器单位 label 的 centerX 差值（自定义调整各日期单位的水平偏移差值） */
+@property (nonatomic, copy) NSArray *dateUnitDeltaX;
 
 
 //////////////////////////////// 常用的几种模板样式 ////////////////////////////////
