@@ -477,15 +477,11 @@ BRSYNTH_DUMMY_CLASS(BRDatePickerView_BR)
 - (NSArray *)setupPickerUnitLabel:(UIPickerView *)pickerView unitArr:(NSArray *)unitArr {
     NSMutableArray *tempArr = [[NSMutableArray alloc]init];
     for (NSInteger i = 0; i < pickerView.numberOfComponents; i++) {
-        // label宽度
-        CGFloat labelWidth = pickerView.bounds.size.width / pickerView.numberOfComponents;
+        CGFloat componentWidth = [self pickerView:pickerView widthForComponent:i];
         // 单位label
         UILabel *unitLabel = [[UILabel alloc]init];
         unitLabel.autoresizingMask = UIViewAutoresizingFlexibleRightMargin | UIViewAutoresizingFlexibleLeftMargin | UIViewAutoresizingFlexibleTopMargin | UIViewAutoresizingFlexibleBottomMargin;
         unitLabel.backgroundColor = [UIColor clearColor];
-        if (self.pickerMode != BRDatePickerModeYMDHMS) {
-            unitLabel.textAlignment = NSTextAlignmentCenter;
-        }
         unitLabel.font = self.pickerStyle.dateUnitTextFont;
         unitLabel.textColor = self.pickerStyle.dateUnitTextColor;
         // 字体自适应属性
@@ -495,52 +491,37 @@ BRSYNTH_DUMMY_CLASS(BRDatePickerView_BR)
         unitLabel.text = (unitArr.count > 0 && i < unitArr.count) ? unitArr[i] : nil;
         [unitLabel sizeToFit];
         
-        CGFloat centerX = i * labelWidth + labelWidth / 2.0 + self.pickerStyle.dateUnitOffsetX;
-        CGFloat centerY = pickerView.frame.size.height / 2.0 + self.pickerStyle.dateUnitOffsetY;
-        NSArray *deltaArr = nil;
-        // 1.调整各日期单位的水平偏移差值（默认调整）
-        if (self.pickerMode == BRDatePickerModeYMDHMS) {
-            deltaArr = @[@30, @22, @27, @33, @38, @23];
-        } else if (self.pickerMode == BRDatePickerModeYMDHM) {
-            deltaArr = @[@30, @22, @27, @33, @38];
-        } else if (self.pickerMode == BRDatePickerModeYMDH) {
-            deltaArr = @[@30, @22, @27, @33];
-        } else if (self.pickerMode == BRDatePickerModeMDHM) {
-            deltaArr = @[@22, @27, @33, @38];
-        } else if (self.pickerMode == BRDatePickerModeYMD) {
-            deltaArr = @[@32, @23, @27];
-        } else if (self.pickerMode == BRDatePickerModeYM) {
-            deltaArr = @[@32, @23];
-        } else if (self.pickerMode == BRDatePickerModeY) {
-            deltaArr = @[@32];
-        } else if (self.pickerMode == BRDatePickerModeMD) {
-            deltaArr = @[@22, @27];
-        } else if (self.pickerMode == BRDatePickerModeHMS) {
-            deltaArr = @[@23, @25, @30];
-        } else if (self.pickerMode == BRDatePickerModeHM) {
-            deltaArr = @[@23, @27];
-        } else if (self.pickerMode == BRDatePickerModeMS) {
-            deltaArr = @[@25, @30];
-        } else if (self.pickerMode == BRDatePickerModeYQ) {
-            deltaArr = @[@32, @32];
-        } else if (self.pickerMode == BRDatePickerModeYMW) {
-            deltaArr = @[@32, @22, @27];
-        } else if (self.pickerMode == BRDatePickerModeYW) {
-            deltaArr = @[@32, @25];
+        // 根据占位文本长度去计算lable文本宽度
+        NSString *tempText = @"00";
+        if (i == 0) {
+            switch (self.pickerMode) {
+                case BRDatePickerModeYMDHMS:
+                case BRDatePickerModeYMDHM:
+                case BRDatePickerModeYMDH:
+                case BRDatePickerModeYMD:
+                case BRDatePickerModeYM:
+                case BRDatePickerModeY:
+                {
+                    tempText = @"0000";
+                }
+                    break;
+                    
+                default:
+                    break;
+            }
         }
-        // 2.调整各日期单位的水平偏移差值（自定义调整）
-        if (self.pickerStyle.dateUnitDeltaX.count > 0) {
-            deltaArr = self.pickerStyle.dateUnitDeltaX;
-        }
-        if (deltaArr && i < deltaArr.count) {
-            centerX += [deltaArr[i] integerValue];
-        }
-        
+        // 文本宽度
+        CGFloat labelTextWidth = [tempText boundingRectWithSize:CGSizeMake(MAXFLOAT, self.pickerStyle.rowHeight)
+                                                        options:NSStringDrawingUsesLineFragmentOrigin | NSStringDrawingUsesFontLeading
+                                                     attributes:@{NSFontAttributeName:self.pickerStyle.selectRowTextFont ?: self.pickerStyle.pickerTextFont}
+                                                        context:nil].size.width;
+        CGFloat margin = (pickerView.frame.size.width - componentWidth * pickerView.numberOfComponents) / 2;
+        CGFloat deltaX =  (6 - pickerView.numberOfComponents) * 3 + 2;
+        CGFloat centerX = margin + componentWidth / 2.0f + i * (componentWidth + 5) + labelTextWidth / 2.0f + deltaX + self.pickerStyle.dateUnitOffsetX;
+        CGFloat centerY = pickerView.frame.origin.y + pickerView.frame.size.height / 2.0f + self.pickerStyle.dateUnitOffsetY;
         unitLabel.center = CGPointMake(centerX, centerY);
-        
         [tempArr addObject:unitLabel];
-        
-        [pickerView addSubview:unitLabel];
+        [pickerView.superview addSubview:unitLabel];
     }
     
     return [tempArr copy];
