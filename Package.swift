@@ -21,8 +21,6 @@ let package = Package(
         .target(
             name: "BRPickerView",
             path: "BRPickerView",
-            // 排除 Deprecated 目录及其下的所有文件，这些文件仅用于 CocoaPods 集成
-            exclude: ["Deprecated"],
             // 指定该库包含的资源文件，包括 bundle 和隐私清单
             resources: [
                 .process("Core/BRPickerView.bundle"),  // 处理并打包 bundle 资源
