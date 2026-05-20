@@ -22,6 +22,7 @@ typedef NS_ENUM(NSInteger, BRDatePickerStyle) {
     UIDatePickerMode _datePickerMode;
     UIView *_containerView;
     BOOL _isAdjustSelectRow; // 设置minDate时，调整日期联动的选择(解决日期选择器联动不正确的问题)
+    BOOL _isSyncingRollingSelection; // 滚动未结束时批量同步选中行，抑制联动滚动和重复回调
 }
 /** 日期选择器1 */
 @property (nonatomic, strong) UIDatePicker *datePicker;
@@ -29,34 +30,30 @@ typedef NS_ENUM(NSInteger, BRDatePickerStyle) {
 @property (nonatomic, strong) UIPickerView *pickerView;
 
 /// 日期存储数组
-@property(nonatomic, copy) NSArray *yearArr;
-@property(nonatomic, copy) NSArray *monthArr;
-@property(nonatomic, copy) NSArray *dayArr;
-@property(nonatomic, copy) NSArray *hourArr;
-@property(nonatomic, copy) NSArray *minuteArr;
-@property(nonatomic, copy) NSArray *secondArr;
+@property (nonatomic, copy) NSArray *yearArr;
+@property (nonatomic, copy) NSArray *monthArr;
+@property (nonatomic, copy) NSArray *dayArr;
+@property (nonatomic, copy) NSArray *hourArr;
+@property (nonatomic, copy) NSArray *minuteArr;
+@property (nonatomic, copy) NSArray *secondArr;
 
 /// 月周、年周、季度数组
-@property(nonatomic, copy) NSArray *monthWeekArr;
-@property(nonatomic, copy) NSArray *yearWeekArr;
-@property(nonatomic, copy) NSArray *quarterArr;
+@property (nonatomic, copy) NSArray *monthWeekArr;
+@property (nonatomic, copy) NSArray *yearWeekArr;
+@property (nonatomic, copy) NSArray *quarterArr;
 
 /// 记录 年、月、日、时、分、秒 当前选择的位置
-@property(nonatomic, assign) NSInteger yearIndex;
-@property(nonatomic, assign) NSInteger monthIndex;
-@property(nonatomic, assign) NSInteger dayIndex;
-@property(nonatomic, assign) NSInteger hourIndex;
-@property(nonatomic, assign) NSInteger minuteIndex;
-@property(nonatomic, assign) NSInteger secondIndex;
+@property (nonatomic, assign) NSInteger yearIndex;
+@property (nonatomic, assign) NSInteger monthIndex;
+@property (nonatomic, assign) NSInteger dayIndex;
+@property (nonatomic, assign) NSInteger hourIndex;
+@property (nonatomic, assign) NSInteger minuteIndex;
+@property (nonatomic, assign) NSInteger secondIndex;
 
 /// 月周、年周、季度 当前选择的位置
-@property(nonatomic, assign) NSInteger monthWeekIndex;
-@property(nonatomic, assign) NSInteger yearWeekIndex;
-@property(nonatomic, assign) NSInteger quarterIndex;
-
-// 记录滚动中的位置
-@property(nonatomic, assign) NSInteger rollingComponent;
-@property(nonatomic, assign) NSInteger rollingRow;
+@property (nonatomic, assign) NSInteger monthWeekIndex;
+@property (nonatomic, assign) NSInteger yearWeekIndex;
+@property (nonatomic, assign) NSInteger quarterIndex;
 
 // 记录选择的值
 @property (nonatomic, strong) NSDate *mSelectDate;
@@ -485,7 +482,7 @@ typedef NS_ENUM(NSInteger, BRDatePickerStyle) {
                 NSInteger yearWeekIndex = [self.yearWeekArr indexOfObject:lastSelectWeekOfYear];
                 if (yearWeekIndex != self.yearWeekIndex) {
                     _isAdjustSelectRow = YES;
-                    self.monthIndex = yearWeekIndex;
+                    self.yearWeekIndex = yearWeekIndex;
                 }
             } else {
                 _isAdjustSelectRow = YES;
@@ -881,13 +878,6 @@ typedef NS_ENUM(NSInteger, BRDatePickerStyle) {
     
     // 2.设置选择器中间选中行的样式
     [self.pickerStyle setupPickerSelectRowStyle:pickerView titleForRow:row forComponent:component];
-    
-    // 3.记录选择器滚动过程中选中的列和行
-    NSInteger selectRow = [pickerView selectedRowInComponent:component];
-    if (selectRow >= 0) {
-        self.rollingComponent = component;
-        self.rollingRow = selectRow;
-    }
 
     return label;
 }
@@ -1473,7 +1463,7 @@ typedef NS_ENUM(NSInteger, BRDatePickerStyle) {
         
         NSString *yearString = [self getYearString];
         if (![yearString isEqualToString:self.lastRowContent] && ![yearString isEqualToString:self.firstRowContent]) {
-            if (self.yearArr.count * self.monthArr.count * self.monthWeekArr.count == 0) return;
+            if (self.yearArr.count == 0 || self.yearWeekArr.count == 0) return;
             int year = [[self getYearString] intValue];
             int week = [[self getYearWeekString] intValue];
             self.mSelectDate = [NSDate br_setYear:year weekOfYear:week];
@@ -1497,7 +1487,7 @@ typedef NS_ENUM(NSInteger, BRDatePickerStyle) {
         
         NSString *yearString = [self getYearString];
         if (![yearString isEqualToString:self.lastRowContent] && ![yearString isEqualToString:self.firstRowContent]) {
-            if (self.yearArr.count * self.monthArr.count * self.monthWeekArr.count == 0) return;
+            if (self.yearArr.count == 0 || self.quarterArr.count == 0) return;
             int year = [[self getYearString] intValue];
             int quarter = [[self getQuarterString] intValue];
             self.mSelectDate = [NSDate br_setYear:year quarter:quarter];
@@ -1510,6 +1500,11 @@ typedef NS_ENUM(NSInteger, BRDatePickerStyle) {
                 self.mSelectValue = self.firstRowContent;
             }
         }
+    }
+    
+    // 滚动未结束批量同步时，仅更新选中值，不触发联动滚动、不可选日期回滚及 change/result 回调
+    if (_isSyncingRollingSelection) {
+        return;
     }
     
     // 纠正选择日期（解决：由【自定义字符串】滚动到 其它日期时，或设置 minDate，日期联动不正确问题）
@@ -1576,25 +1571,26 @@ typedef NS_ENUM(NSInteger, BRDatePickerStyle) {
     return columnWidth;
 }
 
-#pragma mark - 日期选择器1 滚动后的响应事件
-- (void)didSelectValueChanged:(UIDatePicker *)sender {
-    // 读取日期：datePicker.date
-    self.mSelectDate = sender.date;
-    
+#pragma mark - 根据 UIDatePicker 的 date 更新选中值
+- (void)updateMSelectDateFromUIDatePickerDate:(NSDate *)date updatePickerDate:(BOOL)updatePickerDate {
+    self.mSelectDate = date;
     if (_datePickerMode != UIDatePickerModeCountDownTimer) {
-        BOOL selectLessThanMin = [self br_compareDate:self.mSelectDate targetDate:self.minDate dateFormat:self.dateFormatter] == NSOrderedAscending;
-        BOOL selectMoreThanMax = [self br_compareDate:self.mSelectDate targetDate:self.maxDate dateFormat:self.dateFormatter] == NSOrderedDescending;
-        if (selectLessThanMin) {
+        if ([self br_compareDate:self.mSelectDate targetDate:self.minDate dateFormat:self.dateFormatter] == NSOrderedAscending) {
             self.mSelectDate = self.minDate;
         }
-        if (selectMoreThanMax) {
+        if ([self br_compareDate:self.mSelectDate targetDate:self.maxDate dateFormat:self.dateFormatter] == NSOrderedDescending) {
             self.mSelectDate = self.maxDate;
         }
     }
-    
-    [self.datePicker setDate:self.mSelectDate animated:YES];
-    
+    if (updatePickerDate && _datePicker) {
+        [_datePicker setDate:self.mSelectDate animated:YES];
+    }
     self.mSelectValue = [self br_stringFromDate:self.mSelectDate dateFormat:self.dateFormatter];
+}
+
+#pragma mark - 日期选择器1 滚动后的响应事件
+- (void)didSelectValueChanged:(UIDatePicker *)sender {
+    [self updateMSelectDateFromUIDatePickerDate:sender.date updatePickerDate:YES];
     
     // 滚动选择时执行 changeBlock 回调
     if (self.changeBlock) {
@@ -1626,7 +1622,6 @@ typedef NS_ENUM(NSInteger, BRDatePickerStyle) {
         // 2.刷新选择器（重新设置相关值）
         self.datePicker.datePickerMode = _datePickerMode;
         
-#if __IPHONE_OS_VERSION_MAX_ALLOWED >= 130400 // 编译时检查SDK版本，iOS SDK 13.4 以后版本的处理
         if (@available(iOS 13.4, *)) {
             CGRect rect = self.datePicker.frame;
             // 适配 iOS14 以后 UIDatePicker 的显示样式
@@ -1635,7 +1630,6 @@ typedef NS_ENUM(NSInteger, BRDatePickerStyle) {
             // 重新设置 datePicker 的 frame
             self.datePicker.frame = rect;
         }
-#endif
         
         // 设置该 UIDatePicker 的国际化 Locale
         self.datePicker.locale = [[NSLocale alloc]initWithLocaleIdentifier:self.pickerStyle.language];
@@ -1697,12 +1691,16 @@ typedef NS_ENUM(NSInteger, BRDatePickerStyle) {
     __weak typeof(self) weakSelf = self;
     // 点击确定按钮的回调：点击确定按钮后，执行这个block回调
     self.doneBlock = ^{
+        if (!weakSelf) {
+            return;
+        }
+        // 滚动未结束时同步当前选中值，避免 didSelectRow 未回调导致选值错误或闪退（#355）
         if (weakSelf.isRolling) {
-            NSLog(@"选择器滚动还未结束");
-            // 问题：当用户快速滚动选择器，在滚动未结束前快速点击确定按钮，会导致 didSelectRow 代理方法还没有执行，出现没有选中的情况。
-            // 解决：这里手动处理一下，如果滚动还未结束，强制执行一次 didSelectRow 代理方法，选择当前滚动的行。（如果需要预判，可以根据滚动速度来调整偏移量）
-            //[weakSelf pickerView:weakSelf.pickerView didSelectRow:weakSelf.rollingRow inComponent:weakSelf.rollingComponent];
-            [weakSelf handleAutoSelectRollingRow];
+            if (weakSelf.style == BRDatePickerStyleSystem) {
+                [weakSelf handleAutoSelectRollingDatePicker];
+            } else if (weakSelf.style == BRDatePickerStyleCustom) {
+                [weakSelf handleAutoSelectRollingRow];
+            }
         }
         
         // 执行选择结果回调
@@ -1717,24 +1715,77 @@ typedef NS_ENUM(NSInteger, BRDatePickerStyle) {
     [super addPickerToView:view];
 }
 
+#pragma mark - 处理系统日期选择器滚动未结束
+- (void)handleAutoSelectRollingDatePicker {
+    if (!_datePicker) {
+        return;
+    }
+    [self updateMSelectDateFromUIDatePickerDate:_datePicker.date updatePickerDate:NO];
+}
+
+#pragma mark - 获取指定列当前选中行（边界修正）
+- (NSInteger)clampedSelectedRowInComponent:(NSInteger)component {
+    NSInteger maxRow = [_pickerView numberOfRowsInComponent:component] - 1;
+    if (maxRow < 0) {
+        return NSNotFound;
+    }
+    NSInteger row = [_pickerView selectedRowInComponent:component];
+    return MAX(0, MIN(row, maxRow));
+}
+
 #pragma mark - 处理滚动未结束前自动选择行
 - (void)handleAutoSelectRollingRow {
-    NSInteger component = self.rollingComponent;
-    NSInteger row = self.rollingRow;
+    if (!_pickerView) {
+        return;
+    }
+    NSInteger componentCount = [_pickerView numberOfComponents];
+    if (componentCount <= 0) {
+        return;
+    }
     
-    // 组件边界检查
-    NSInteger maxComponent = [self.pickerView numberOfComponents] - 1;
-    component = MAX(0, MIN(component, maxComponent));
+    _isSyncingRollingSelection = YES;
+    for (NSInteger component = 0; component < componentCount; component++) {
+        NSInteger row = [self clampedSelectedRowInComponent:component];
+        if (row == NSNotFound) {
+            continue;
+        }
+        [self pickerView:_pickerView didSelectRow:row inComponent:component];
+    }
+    _isSyncingRollingSelection = NO;
     
-    // 行边界检查
-    NSInteger maxRow = [self.pickerView numberOfRowsInComponent:component] - 1;
-    row = MAX(0, MIN(row, maxRow));
-    
-    // 记录修正后的值
-    self.rollingComponent = component;
-    self.rollingRow = row;
-    
-    [self pickerView:self.pickerView didSelectRow:row inComponent:component];
+    // 兜底：didSelectRow 内因数据源为空提前 return 时，按最终索引再刷新（#355 常见 YMD 场景）
+    if (self.pickerMode == BRDatePickerModeYMD || self.pickerMode == BRDatePickerModeYM) {
+        [self refreshMSelectValueAfterRollingSync];
+    }
+}
+
+#pragma mark - 滚动同步结束后刷新选中值（仅含自定义首/末行的模式）
+- (void)refreshMSelectValueAfterRollingSync {
+    NSString *yearString = [self getYearString];
+    if (self.lastRowContent && [yearString isEqualToString:self.lastRowContent]) {
+        self.mSelectDate = self.addToNow ? [NSDate date] : nil;
+        self.mSelectValue = self.lastRowContent;
+        return;
+    }
+    if (self.firstRowContent && [yearString isEqualToString:self.firstRowContent]) {
+        self.mSelectDate = self.addToNow ? [NSDate date] : nil;
+        self.mSelectValue = self.firstRowContent;
+        return;
+    }
+    if (self.pickerMode == BRDatePickerModeYMD &&
+        self.yearArr.count > 0 && self.monthArr.count > 0 && self.dayArr.count > 0) {
+        int year = [[self getYearString] intValue];
+        int month = [[self getMonthString] intValue];
+        int day = [[self getDayString] intValue];
+        self.mSelectDate = [NSDate br_setYear:year month:month day:day];
+        self.mSelectValue = [NSString stringWithFormat:@"%04d-%02d-%02d", year, month, day];
+    } else if (self.pickerMode == BRDatePickerModeYM &&
+               self.yearArr.count > 0 && self.monthArr.count > 0) {
+        int year = [[self getYearString] intValue];
+        int month = [[self getMonthString] intValue];
+        self.mSelectDate = [NSDate br_setYear:year month:month];
+        self.mSelectValue = [NSString stringWithFormat:@"%04d-%02d", year, month];
+    }
 }
 
 #pragma mark - 添加日期单位到选择器
@@ -1914,6 +1965,9 @@ typedef NS_ENUM(NSInteger, BRDatePickerStyle) {
 }
 
 - (NSString *)getYearString {
+    if (self.yearArr.count == 0) {
+        return @"";
+    }
     NSInteger index = 0;
     if (self.yearIndex >= 0 && self.yearIndex < self.yearArr.count) {
         index = self.yearIndex;
@@ -1922,6 +1976,9 @@ typedef NS_ENUM(NSInteger, BRDatePickerStyle) {
 }
 
 - (NSString *)getMonthString {
+    if (self.monthArr.count == 0) {
+        return @"";
+    }
     NSInteger index = 0;
     if (self.monthIndex >= 0 && self.monthIndex < self.monthArr.count) {
         index = self.monthIndex;
@@ -1930,6 +1987,9 @@ typedef NS_ENUM(NSInteger, BRDatePickerStyle) {
 }
 
 - (NSString *)getDayString {
+    if (self.dayArr.count == 0) {
+        return @"";
+    }
     NSInteger index = 0;
     if (self.dayIndex >= 0 && self.dayIndex < self.dayArr.count) {
         index = self.dayIndex;
@@ -1938,6 +1998,9 @@ typedef NS_ENUM(NSInteger, BRDatePickerStyle) {
 }
 
 - (NSString *)getHourString {
+    if (self.hourArr.count == 0) {
+        return @"";
+    }
     NSInteger index = 0;
     if (self.hourIndex >= 0 && self.hourIndex < self.hourArr.count) {
         index = self.hourIndex;
@@ -1946,6 +2009,9 @@ typedef NS_ENUM(NSInteger, BRDatePickerStyle) {
 }
 
 - (NSString *)getMinuteString {
+    if (self.minuteArr.count == 0) {
+        return @"";
+    }
     NSInteger index = 0;
     if (self.minuteIndex >= 0 && self.minuteIndex < self.minuteArr.count) {
         index = self.minuteIndex;
@@ -1954,6 +2020,9 @@ typedef NS_ENUM(NSInteger, BRDatePickerStyle) {
 }
 
 - (NSString *)getSecondString {
+    if (self.secondArr.count == 0) {
+        return @"";
+    }
     NSInteger index = 0;
     if (self.secondIndex >= 0 && self.secondIndex < self.secondArr.count) {
         index = self.secondIndex;
@@ -1962,6 +2031,9 @@ typedef NS_ENUM(NSInteger, BRDatePickerStyle) {
 }
 
 - (NSString *)getMonthWeekString {
+    if (self.monthWeekArr.count == 0) {
+        return @"";
+    }
     NSInteger index = 0;
     if (self.monthWeekIndex >= 0 && self.monthWeekIndex < self.monthWeekArr.count) {
         index = self.monthWeekIndex;
@@ -1970,6 +2042,9 @@ typedef NS_ENUM(NSInteger, BRDatePickerStyle) {
 }
 
 - (NSString *)getYearWeekString {
+    if (self.yearWeekArr.count == 0) {
+        return @"";
+    }
     NSInteger index = 0;
     if (self.yearWeekIndex >= 0 && self.yearWeekIndex < self.yearWeekArr.count) {
         index = self.yearWeekIndex;
@@ -1978,6 +2053,9 @@ typedef NS_ENUM(NSInteger, BRDatePickerStyle) {
 }
 
 - (NSString *)getQuarterString {
+    if (self.quarterArr.count == 0) {
+        return @"";
+    }
     NSInteger index = 0;
     if (self.quarterIndex >= 0 && self.quarterIndex < self.quarterArr.count) {
         index = self.quarterIndex;
@@ -1987,7 +2065,14 @@ typedef NS_ENUM(NSInteger, BRDatePickerStyle) {
 
 #pragma mark - 获取选中日期范围
 - (NSArray<NSDate *> *)getSelectRangeDate {
-    NSDate *startDate, *endDate = nil;
+    if (!self.mSelectDate ||
+        (self.lastRowContent && [self.mSelectValue isEqualToString:self.lastRowContent]) ||
+        (self.firstRowContent && [self.mSelectValue isEqualToString:self.firstRowContent])) {
+        return @[];
+    }
+    
+    NSDate *startDate = nil;
+    NSDate *endDate = nil;
     switch (self.pickerMode) {
         case BRDatePickerModeYMDHMS:
         case BRDatePickerModeMS:
@@ -2010,7 +2095,7 @@ typedef NS_ENUM(NSInteger, BRDatePickerStyle) {
             break;
         case BRDatePickerModeYMDH:
         {
-            NSDate *tempDate = [self br_dateFromString:self.mSelectValue dateFormat:self.dateFormatter];
+            NSDate *tempDate = self.isShowAMAndPM ? self.mSelectDate : [self br_dateFromString:self.mSelectValue dateFormat:self.dateFormatter];
             startDate = tempDate;
             endDate = [tempDate dateByAddingTimeInterval:60 * 59 + 59];
         }

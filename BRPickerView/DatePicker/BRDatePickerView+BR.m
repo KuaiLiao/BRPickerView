@@ -134,6 +134,10 @@ BRSYNTH_DUMMY_CLASS(BRDatePickerView_BR)
         }
     }
     
+    if (!selectDate) {
+        return nil;
+    }
+    
     // 判断日期是否超过边界限制
     BOOL selectLessThanMin = [self br_compareDate:selectDate targetDate:self.minDate dateFormat:dateFormat] == NSOrderedAscending;
     BOOL selectMoreThanMax = [self br_compareDate:selectDate targetDate:self.maxDate dateFormat:dateFormat] == NSOrderedDescending;
@@ -193,6 +197,9 @@ BRSYNTH_DUMMY_CLASS(BRDatePickerView_BR)
             case BRDatePickerModeYMD:
             case BRDatePickerModeYM:
             case BRDatePickerModeY:
+            case BRDatePickerModeYMW:
+            case BRDatePickerModeYW:
+            case BRDatePickerModeYQ:
             {
                 if (self.lastRowContent) {
                     [tempArr addObject:self.lastRowContent];
@@ -544,6 +551,9 @@ BRSYNTH_DUMMY_CLASS(BRDatePickerView_BR)
 }
 
 - (NSString *)getYearText:(NSArray *)yearArr row:(NSInteger)row {
+    if (yearArr.count == 0) {
+        return @"";
+    }
     NSInteger index = 0;
     if (row >= 0) {
         index = MIN(row, yearArr.count - 1);
@@ -557,6 +567,9 @@ BRSYNTH_DUMMY_CLASS(BRDatePickerView_BR)
 }
 
 - (NSString *)getMonthText:(NSArray *)monthArr row:(NSInteger)row {
+    if (monthArr.count == 0) {
+        return @"";
+    }
     NSInteger index = 0;
     if (row >= 0) {
         index = MIN(row, monthArr.count - 1);
@@ -592,6 +605,9 @@ BRSYNTH_DUMMY_CLASS(BRDatePickerView_BR)
 }
 
 - (NSString *)getDayText:(NSArray *)dayArr row:(NSInteger)row mSelectDate:(NSDate *)mSelectDate {
+    if (dayArr.count == 0) {
+        return @"";
+    }
     NSInteger index = 0;
     if (row >= 0) {
         index = MIN(row, dayArr.count - 1);
@@ -611,6 +627,9 @@ BRSYNTH_DUMMY_CLASS(BRDatePickerView_BR)
 }
 
 - (NSString *)getHourText:(NSArray *)hourArr row:(NSInteger)row {
+    if (hourArr.count == 0) {
+        return @"";
+    }
     NSInteger index = 0;
     if (row >= 0) {
         index = MIN(row, hourArr.count - 1);
@@ -624,6 +643,9 @@ BRSYNTH_DUMMY_CLASS(BRDatePickerView_BR)
 }
 
 - (NSString *)getMinuteText:(NSArray *)minuteArr row:(NSInteger)row {
+    if (minuteArr.count == 0) {
+        return @"";
+    }
     NSInteger index = 0;
     if (row >= 0) {
         index = MIN(row, minuteArr.count - 1);
@@ -634,6 +656,9 @@ BRSYNTH_DUMMY_CLASS(BRDatePickerView_BR)
 }
 
 - (NSString *)getSecondText:(NSArray *)secondArr row:(NSInteger)row {
+    if (secondArr.count == 0) {
+        return @"";
+    }
     NSInteger index = 0;
     if (row >= 0) {
         index = MIN(row, secondArr.count - 1);
@@ -644,6 +669,9 @@ BRSYNTH_DUMMY_CLASS(BRDatePickerView_BR)
 }
 
 - (NSString *)getWeekText:(NSArray *)weekArr row:(NSInteger)row {
+    if (weekArr.count == 0) {
+        return @"";
+    }
     NSInteger index = 0;
     if (row >= 0) {
         index = MIN(row, weekArr.count - 1);
@@ -657,6 +685,9 @@ BRSYNTH_DUMMY_CLASS(BRDatePickerView_BR)
 }
 
 - (NSString *)getQuarterText:(NSArray *)quarterArr row:(NSInteger)row {
+    if (quarterArr.count == 0) {
+        return @"";
+    }
     NSInteger index = 0;
     if (row >= 0) {
         index = MIN(row, quarterArr.count - 1);

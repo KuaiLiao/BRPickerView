@@ -158,12 +158,14 @@
 
     // 将所有模型对象以 code 作为 key 存入字典
     for (BRTextModel *model in self) {
-        allItemDic[model.code] = model;
+        if (model.code && model.code.length > 0) {
+            allItemDic[model.code] = model;
+        }
     }
     
     for (BRTextModel *model in self) {
         NSString *parentCode = model.parentCode;
-        BRTextModel *parentModel = allItemDic[parentCode];
+        BRTextModel *parentModel = parentCode && parentCode.length > 0 ? allItemDic[parentCode] : nil;
         if (parentModel) {
             if (!parentModel.children) {
                 parentModel.children = [NSArray array];
