@@ -10,14 +10,13 @@
 #import "BRTextPickerView.h"
 
 @interface BRTextPickerView ()<UIPickerViewDelegate, UIPickerViewDataSource>
+{
+    BOOL _isSyncingRollingSelection; // 滚动未结束时批量同步，抑制 change 回调
+}
 /** 选择器 */
 @property (nonatomic, strong) UIPickerView *pickerView;
 /** 当前显示的数据源 */
 @property (nonatomic, copy) NSArray *dataList;
-
-// 记录滚动中的位置
-@property(nonatomic, assign) NSInteger rollingComponent;
-@property(nonatomic, assign) NSInteger rollingRow;
 
 @end
 
@@ -252,13 +251,6 @@
     
     // 2.设置选择器中间选中行的样式
     [self.pickerStyle setupPickerSelectRowStyle:pickerView titleForRow:row forComponent:component];
-    
-    // 3.记录选择器滚动过程中选中的列和行
-    NSInteger selectRow = [pickerView selectedRowInComponent:component];
-    if (selectRow >= 0) {
-        self.rollingComponent = component;
-        self.rollingRow = selectRow;
-    }
 
     // 设置文本
     if (self.pickerMode == BRTextPickerComponentSingle) {
@@ -325,8 +317,10 @@
         case BRTextPickerComponentSingle:
         {
             self.selectIndex = row;
-            // 滚动选择时执行 singleChangeBlock
-            self.singleChangeBlock ? self.singleChangeBlock([self getSingleSelectModel], self.selectIndex): nil;
+            if (!_isSyncingRollingSelection) {
+                // 滚动选择时执行 singleChangeBlock
+                self.singleChangeBlock ? self.singleChangeBlock([self getSingleSelectModel], self.selectIndex): nil;
+            }
         }
             break;
         case BRTextPickerComponentMulti:
@@ -340,14 +334,17 @@
                 }
             }
             
-            if (component < self.selectIndexs.count) {
-                NSMutableArray *mutableArr = [self.selectIndexs mutableCopy];
-                [mutableArr replaceObjectAtIndex:component withObject:@(row)];
-                self.selectIndexs = [mutableArr copy];
+            NSMutableArray *mutableArr = [NSMutableArray arrayWithArray:self.selectIndexs ?: @[]];
+            while (mutableArr.count <= component) {
+                [mutableArr addObject:@(0)];
             }
+            [mutableArr replaceObjectAtIndex:component withObject:@(row)];
+            self.selectIndexs = [mutableArr copy];
             
-            // 滚动选择时执行 multiChangeBlock
-            self.multiChangeBlock ? self.multiChangeBlock([self getMultiSelectModels], self.selectIndexs): nil;
+            if (!_isSyncingRollingSelection) {
+                // 滚动选择时执行 multiChangeBlock
+                self.multiChangeBlock ? self.multiChangeBlock([self getMultiSelectModels], self.selectIndexs): nil;
+            }
         }
             break;
         case BRTextPickerComponentCascade:
@@ -375,11 +372,12 @@
                 self.selectIndexs = [selectIndexs copy];
             }
             
-            // 刷新选择器数据
-            [self reloadData];
-            
-            // 滚动选择时执行 multiChangeBlock
-            self.multiChangeBlock ? self.multiChangeBlock([self getMultiSelectModels], self.selectIndexs): nil;
+            if (!_isSyncingRollingSelection) {
+                // 刷新选择器数据
+                [self reloadData];
+                // 滚动选择时执行 multiChangeBlock
+                self.multiChangeBlock ? self.multiChangeBlock([self getMultiSelectModels], self.selectIndexs): nil;
+            }
         }
             break;
             
@@ -494,11 +492,10 @@
     __weak typeof(self) weakSelf = self;
     // 点击确定按钮的回调：点击确定按钮后，执行这个block回调
     self.doneBlock = ^{
+        if (!weakSelf) {
+            return;
+        }
         if (weakSelf.isRolling) {
-            NSLog(@"选择器滚动还未结束");
-            // 问题：当用户快速滚动选择器，在滚动未结束前快速点击确定按钮，会导致 didSelectRow 代理方法还没有执行，出现没有选中的情况。
-            // 解决：这里手动处理一下，如果滚动还未结束，强制执行一次 didSelectRow 代理方法，选择当前滚动的行。（如果需要预判，可以根据滚动速度来调整偏移量）
-            //[weakSelf pickerView:weakSelf.pickerView didSelectRow:weakSelf.rollingRow inComponent:weakSelf.rollingComponent];
             [weakSelf handleAutoSelectRollingRow];
         }
     
@@ -513,24 +510,78 @@
     [super addPickerToView:view];
 }
 
+#pragma mark - 获取指定列当前选中行（边界修正）
+- (NSInteger)clampedSelectedRowInComponent:(NSInteger)component {
+    NSInteger maxRow = [_pickerView numberOfRowsInComponent:component] - 1;
+    if (maxRow < 0) {
+        return NSNotFound;
+    }
+    NSInteger row = [_pickerView selectedRowInComponent:component];
+    return MAX(0, MIN(row, maxRow));
+}
+
 #pragma mark - 处理滚动未结束前自动选择行
 - (void)handleAutoSelectRollingRow {
-    NSInteger component = self.rollingComponent;
-    NSInteger row = self.rollingRow;
+    if (!_pickerView) {
+        return;
+    }
+    NSInteger componentCount = [_pickerView numberOfComponents];
+    if (componentCount <= 0) {
+        return;
+    }
     
-    // 组件边界检查
-    NSInteger maxComponent = [self.pickerView numberOfComponents] - 1;
-    component = MAX(0, MIN(component, maxComponent));
+    if (self.pickerMode == BRTextPickerComponentCascade) {
+        NSInteger changedIndex = NSNotFound;
+        NSInteger changedRow = NSNotFound;
+        for (NSInteger component = 0; component < componentCount; component++) {
+            if (self.pickerStyle.columnSpacing > 0 && component % 2 == 1) {
+                continue;
+            }
+            NSInteger dataComponent = self.pickerStyle.columnSpacing > 0 ? component / 2 : component;
+            NSInteger row = [self clampedSelectedRowInComponent:component];
+            if (row == NSNotFound) {
+                continue;
+            }
+            NSInteger oldRow = dataComponent < self.selectIndexs.count ? [self.selectIndexs[dataComponent] integerValue] : 0;
+            if (row != oldRow) {
+                changedIndex = dataComponent;
+                changedRow = row;
+                break;
+            }
+        }
+        if (changedIndex != NSNotFound) {
+            NSMutableArray<NSNumber *> *selectIndexs = [NSMutableArray array];
+            for (NSInteger index = 0; index < self.selectIndexs.count; index++) {
+                if (index < changedIndex) {
+                    [selectIndexs addObject:self.selectIndexs[index]];
+                } else if (index == changedIndex) {
+                    [selectIndexs addObject:@(changedRow)];
+                } else {
+                    [selectIndexs addObject:@(0)];
+                }
+            }
+            self.selectIndexs = [selectIndexs copy];
+            [self reloadData];
+        }
+        return;
+    }
     
-    // 行边界检查
-    NSInteger maxRow = [self.pickerView numberOfRowsInComponent:component] - 1;
-    row = MAX(0, MIN(row, maxRow));
-    
-    // 记录修正后的值
-    self.rollingComponent = component;
-    self.rollingRow = row;
-    
-    [self pickerView:self.pickerView didSelectRow:row inComponent:component];
+    _isSyncingRollingSelection = YES;
+    if (self.pickerMode == BRTextPickerComponentSingle) {
+        NSInteger row = [self clampedSelectedRowInComponent:0];
+        if (row != NSNotFound) {
+            [self pickerView:_pickerView didSelectRow:row inComponent:0];
+        }
+    } else {
+        for (NSInteger component = 0; component < componentCount; component++) {
+            NSInteger row = [self clampedSelectedRowInComponent:component];
+            if (row == NSNotFound) {
+                continue;
+            }
+            [self pickerView:_pickerView didSelectRow:row inComponent:component];
+        }
+    }
+    _isSyncingRollingSelection = NO;
 }
 
 #pragma mark - 重写父类方法

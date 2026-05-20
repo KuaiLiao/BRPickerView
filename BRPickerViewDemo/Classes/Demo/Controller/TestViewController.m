@@ -622,14 +622,14 @@ typedef NS_ENUM(NSInteger, BRTimeType) {
         segmentedControl.frame = CGRectMake(40, 50, self.view.bounds.size.width - 80, 36);
         segmentedControl.autoresizingMask = UIViewAutoresizingFlexibleWidth;
         segmentedControl.apportionsSegmentWidthsByContent = YES;
+        // 设置背景图片颜色
+        [segmentedControl setBackgroundImage:[UIImage br_imageWithColor:[UIColor whiteColor]] forState:UIControlStateNormal barMetrics:UIBarMetricsDefault];
+        [segmentedControl setBackgroundImage:[UIImage br_imageWithColor:kThemeColor] forState:UIControlStateSelected barMetrics:UIBarMetricsDefault];
         // 设置圆角和边框
         segmentedControl.layer.cornerRadius = 3.0f;
         segmentedControl.layer.masksToBounds = YES;
         segmentedControl.layer.borderWidth = 0.8f;
         segmentedControl.layer.borderColor = kThemeColor.CGColor;
-        // 设置背景图片颜色
-        [segmentedControl setBackgroundImage:[UIImage br_imageWithColor:[UIColor whiteColor]] forState:UIControlStateNormal barMetrics:UIBarMetricsDefault];
-        [segmentedControl setBackgroundImage:[UIImage br_imageWithColor:kThemeColor] forState:UIControlStateSelected barMetrics:UIBarMetricsDefault];
         // 设置标题颜色
         [segmentedControl setTitleTextAttributes:@{NSForegroundColorAttributeName:kThemeColor, NSFontAttributeName:[UIFont systemFontOfSize:14.0f]} forState:UIControlStateNormal];
         [segmentedControl setTitleTextAttributes:@{NSForegroundColorAttributeName:[UIColor whiteColor], NSFontAttributeName:[UIFont systemFontOfSize:14.0f]} forState:UIControlStateSelected];
