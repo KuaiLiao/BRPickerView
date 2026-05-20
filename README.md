@@ -4,7 +4,7 @@ BRPickerView 封装的是iOS中常用的选择器组件，主要包括：**`BRDa
 
 ⚠️【特别说明】
 
->- 从 `V3.0.0` 版本起，删除了 `BRAddressPickerView`、`BRStringPickerView` 组件；请使用 `BRTextPickerView` 新组件进行替代。如项目大面积报错，也可暂时使用 2.9.9 旧版本：`pod 'BRPickerView', '2.9.9'`
+>- 从 `V3.0.0` 版本起，移除了 `BRAddressPickerView`、`BRStringPickerView` 废弃组件；请使用 `BRTextPickerView` 新组件进行替代。如果项目大面积报错：① 可暂时使用 2.9.9 旧版本：`pod 'BRPickerView', '2.9.9'`；② 或下载Demo，手动把`Deprecated` 目录添加到项目中。
 >- 如果不能找到最新版本，请先执行一下 `pod repo update ` 更新本地仓库，使 CocoaPods 能识别最新可用的库版本。 
 
 #### 📒 稀土掘金：https://juejin.cn/post/6844903605468676104
@@ -642,10 +642,12 @@ textPickerView.pickerStyle = customStyle;
 
 # 更新记录
 
-#### 2026-03-26（V3.0.0）
+#### 2026-05-20（V3.0.0）
 
-- 删除 BRAddressPickerView、BRStringPickerView 组件
-- 修改框架支持的平台和版本 iOS 11.0+
+- 移除 BRAddressPickerView、BRStringPickerView 废弃组件
+- 修改库支持的平台和版本为 iOS 11.0+
+
+- fix：[#355](https://github.com/agiapp/BRPickerView/issues/355) 
 
 #### 2025-10-24（V2.9.9）
 
