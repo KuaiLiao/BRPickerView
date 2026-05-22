@@ -4,8 +4,7 @@ BRPickerView 封装的是iOS中常用的选择器组件，主要包括：**`BRDa
 
 ⚠️【特别说明】
 
->- 从 `V2.9.0` 版本起，新增了`BRTextPickerView` 组件，用于替代 `BRAddressPickerView` 和 `BRStringPickerView` 两个旧组件（目前这两个旧组件做了兼容，可以继续使用，后续会废弃掉，建议使用 `BRTextPickerView` 新组件进行替代）
->- `V2.8.8`之前老版本，在iOS18+系统上，会因 `maskView` 命名出现崩溃问题，请及时升级到最新版本。
+>- 从 `V3.0.0` 版本起，移除了 `BRAddressPickerView`、`BRStringPickerView` 废弃组件；请使用 `BRTextPickerView` 新组件进行替代。如果项目大面积报错：① 可暂时使用 2.9.9 旧版本：`pod 'BRPickerView', '2.9.9'`；② 或下载Demo，手动把`Deprecated` 目录添加到项目中。
 >- 如果不能找到最新版本，请先执行一下 `pod repo update ` 更新本地仓库，使 CocoaPods 能识别最新可用的库版本。 
 
 #### 📒 稀土掘金：https://juejin.cn/post/6844903605468676104
@@ -28,12 +27,6 @@ BRPickerView 封装的是iOS中常用的选择器组件，主要包括：**`BRDa
 2. 执行 `pod install` 或 `pod update` 
 3. 导入头文件 ` #import <BRPickerView.h>`
 
->安装说明：
->
->**pod 'BRPickerView'** ：默认是安装全部组件（包含：`BRDatePickerView` 、 `BRTextPickerView` ，和废弃的`BRAddressPickerView` 、`BRStringPickerView` 组件），等价于：`pod 'BRPickerView/All'`
->
->**pod 'BRPickerView/Default'** ：仅安装`BRDatePickerView` 和 `BRTextPickerView` 组件
-
 #### SPM Supported
 
 1. 依次点击 Xcode 的菜单 File  > Add Package Dependencies...
@@ -49,7 +42,7 @@ BRPickerView 封装的是iOS中常用的选择器组件，主要包括：**`BRDa
 
 # 系统要求
 
-- iOS 9.0+
+- iOS 11.0+
 - ARC
 
 # 使用
@@ -437,13 +430,13 @@ textPickerView.multiResultBlock = ^(NSArray<BRTextModel *> * _Nullable models, N
 
 
 
-- 实现省、市、区/县选择（使用本地数据源：region_tree_data.json）
+- 实现省、市、区/县选择（通常省市区/县数据是从自己业务后台API获取，这里使用本地数据源仅做参考，文件下载地址：[region_tree_data.json](https://raw.githubusercontent.com/agiapp/BRPickerView/master/BRPickerViewDemo/DataFile/region_tree_data.json)）
 
 ```objective-c
 // 地区
 BRTextPickerView *textPickerView = [[BRTextPickerView alloc]initWithPickerMode:BRTextPickerComponentCascade];
 textPickerView.title = @"请选择地区";
-// 设置数据源：传入本地json文件名（可以下载Demo中的 region_tree_data.json 文件放到自己的项目中，该数据源来源于高德地图最新数据）
+// 设置数据源：传入本地json文件名（可以下载Demo中的 region_tree_data.json 文件放到自己的项目中）
 textPickerView.fileName = @"region_tree_data.json";
 // 设置选择器显示的列数(即层级数)，默认是根据数据源层级动态计算显示。如：设置1则只显示前1列数据（即只显示省）；设置2则只显示前2列数据（即只显示省、市）；设置3则只显示前3列数据（即显示省、市、区）
 textPickerView.showColumnNum = 3;
@@ -467,21 +460,13 @@ textPickerView.multiResultBlock = ^(NSArray<BRTextModel *> * _Nullable models, N
 | ![省份](https://github.com/agiapp/BRPickerView/blob/master/BRPickerViewDemo/images/text_cascade_province.png?raw=true) |                                                              |
 | 样式3：textPickerView.showColumnNum = 1;                     |                                                              |
 
->高德地图行政区划数据源（省、市、区/县），数据更新于2024年7月
->
->- 原数据：[amap_region_data.json](https://raw.githubusercontent.com/agiapp/BRPickerView/master/BRPickerViewDemo/DataFile/amap_region_data.json)
->- 处理后的树状结构数据1：[region_tree_data.json](https://raw.githubusercontent.com/agiapp/BRPickerView/master/BRPickerViewDemo/DataFile/region_tree_data.json) （组件使用本地数据源时，需要下载的文件）
->- 处理后的树状结构数据2：[region_list_data.json](https://raw.githubusercontent.com/agiapp/BRPickerView/master/BRPickerViewDemo/DataFile/region_list_data.json)
-
-
-
 - 处理树状结构数据
 
 ```json
 {
-    "status": "1",
-    "info": "OK",
-    "districts": [
+    "code": "200",
+    "message": "OK",
+    "data": [
         {
             "adcode": "330000",
             "name": "浙江省",
@@ -517,7 +502,7 @@ BRTextPickerView *textPickerView = [[BRTextPickerView alloc]initWithPickerMode:B
 textPickerView.title = @"多列联动文本选择器";
 
 // 接收网络请求结果数据（下面省略号表示省略部分代码）
-NSArray *dataArr = ...... responseObject[@"districts"];
+NSArray *dataArr = ...... responseObject[@"data"];
 // 指定 BRTextModel模型的属性 与 字典key 的映射关系
 NSDictionary *mapper = @{ @"code": @"adcode", @"text": @"name", @"children": @"districts" };
 // 将上面数组 转为 模型数组（组件内封装的工具方法）
@@ -656,6 +641,21 @@ textPickerView.pickerStyle = customStyle;
 
 
 # 更新记录
+
+#### 2026-05-20（V3.0.0）
+
+- 移除 BRAddressPickerView、BRStringPickerView 废弃组件
+- 修改库支持的平台和版本为 iOS 11.0+
+
+- fix：[#355](https://github.com/agiapp/BRPickerView/issues/355) 
+
+#### 2025-10-24（V2.9.9）
+
+- Merge pull request  [#329](https://github.com/agiapp/BRPickerView/pull/329)、 [#348](https://github.com/agiapp/BRPickerView/pull/348)
+
+#### 2025-10-17（V2.9.8）
+
+- fix：[#345](https://github.com/agiapp/BRPickerView/issues/345) 、[#349](https://github.com/agiapp/BRPickerView/issues/349) 
 
 #### 2025-05-27（V2.9.7）
 
